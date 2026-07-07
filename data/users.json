@@ -1,0 +1,10 @@
+{
+    "valid_user": {
+        "name": "andersenjames",
+        "email": "nicolethompson@example.net",
+        "phone": "5104298343",
+        "location": "Batesfort",
+        "password": "$5H$bn_B+Ehp",
+        "confirm_password": "$5H$bn_B+Ehp"
+    }
+}
