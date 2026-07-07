@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BringApp Cafe — Interactive Knowledge Graph</title>
+<style>
+  :root{
+    --espresso: #2b1d16;
+    --espresso-deep: #1c130d;
+    --paper: #f2e8d5;
+    --paper-dim: #e3d5b8;
+    --ink: #241812;
+    --amber: #c98a3d;
+    --teal: #3f8f86;
+    --crimson: #a94a41;
+    --sage: #728759;
+    --slate: #6b5b4c;
+    --font-display: 'Roboto Slab', Georgia, serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: radial-gradient(ellipse at top left, #3a281c 0%, var(--espresso) 45%, var(--espresso-deep) 100%);
+    font-family: var(--font-mono);
+    color: var(--paper);
+    min-height:100vh;
+    padding: 32px 16px 60px;
+    overflow-x: hidden;
+  }
+
+  .ticket-header{
+    max-width: 980px;
+    margin: 0 auto 28px;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 26px 34px 22px;
+    position: relative;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+    clip-path: polygon(
+      0% 2%, 2% 0%, 6% 2%, 10% 0%, 14% 2%, 18% 0%, 22% 2%, 26% 0%, 30% 2%, 34% 0%,
+      38% 2%, 42% 0%, 46% 2%, 50% 0%, 54% 2%, 58% 0%, 62% 2%, 66% 0%, 70% 2%, 74% 0%,
+      78% 2%, 82% 0%, 86% 2%, 90% 0%, 94% 2%, 98% 0%, 100% 2%,
+      100% 100%, 0% 100%
+    );
+  }
+  .ticket-header .eyebrow{
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--slate);
+    border-bottom: 1px dashed var(--slate);
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    display:flex; justify-content: space-between;
+  }
+  .ticket-header h1{
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 30px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  
+  /* Controls Panel */
+  .controls-panel {
+    max-width: 980px;
+    margin: 0 auto 10px;
+    display: flex;
+    gap: 12px;
+    background: rgba(0,0,0,0.2);
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(242,232,213,0.1);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls-panel input, .controls-panel select, .controls-panel button {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--slate);
+    background: var(--espresso);
+    color: var(--paper);
+    outline: none;
+  }
+  .controls-panel input:focus, .controls-panel select:focus {
+    border-color: var(--amber);
+  }
+  .controls-panel button {
+    background: var(--amber);
+    color: var(--ink);
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+    margin-left: auto;
+  }
+  .controls-panel button:hover { background: #dfa353; }
+  .controls-panel button:disabled { background: var(--slate); cursor: not-allowed; }
+
+  .board-wrap{
+    max-width: 980px;
+    margin: 0 auto;
+    background: var(--espresso-deep);
+    border: 1px solid rgba(201,138,61,0.25);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+    height: 700px; /* Fixed height for pan/zoom canvas */
+    cursor: grab;
+  }
+  .board-wrap:active { cursor: grabbing; }
+
+  svg { width: 100%; height: 100%; display:block; }
+
+  /* Element Styles */
+  .node-group { cursor: pointer; }
+  .node-box{
+    fill: var(--paper);
+    stroke-width: 2;
+    transition: filter 0.15s ease;
+  }
+  .node-label{
+    font-family: var(--font-mono);
+    font-weight: 600;
+    fill: var(--ink);
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .node-sub{
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    fill: var(--slate);
+    text-anchor: middle;
+    pointer-events: none;
+    letter-spacing: 0.04em;
+  }
+
+  .edge{
+    fill:none;
+    stroke: rgba(242,232,213,0.34);
+    stroke-width: 1.6;
+    transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  }
+  .edge-label{
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    fill: #d8c8a8;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  
+  /* State Classes */
+  .dim { opacity: 0.12 !important; }
+  .hidden { display: none !important; }
+  .lit-stroke { stroke: var(--amber) !important; stroke-width: 2.6 !important; opacity: 1 !important; }
+  .lit-node .node-box { filter: drop-shadow(0 0 8px var(--amber)); stroke: var(--amber); stroke-width: 3;}
+  
+  /* Zones */
+  .zone-label{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 11px;
+    fill: rgba(242,232,213,0.55);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .zone-box{ fill: none; stroke-width: 1.2; stroke-dasharray: 5 4; rx: 10; opacity: 0.35; pointer-events: none; }
+
+  #detail{
+    max-width: 980px;
+    margin: 16px auto 0;
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 4px;
+    padding: 16px 20px;
+    min-height: 64px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #detail .d-title{ font-family: var(--font-display); font-weight: 800; font-size: 16px; margin-bottom: 6px; }
+  #detail .d-tag{
+    display:inline-block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--ink); color: var(--paper); padding: 2px 8px; border-radius: 3px; margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="ticket-header">
+    <div class="eyebrow"><span>Order Ticket #APP-FLOW-01</span><span>BringApp Cafe</span></div>
+    <h1>User Journey &amp; App Flow</h1>
+    <p>Use your mouse to <strong>drag nodes</strong>, <strong>pan</strong>, and <strong>scroll to zoom</strong>. Use the controls below to filter the data or take a guided tour of the application's primary ordering flow.</p>
+  </div>
+
+  <div class="controls-panel">
+    <input type="text" id="search-box" placeholder="Search by name...">
+    <select id="cat-filter">
+      <option value="all">All Categories</option>
+      <option value="auth">Authentication</option>
+      <option value="nav">Navigation</option>
+      <option value="shop">Shopping</option>
+      <option value="checkout">Checkout</option>
+      <option value="person">Personalization</option>
+    </select>
+    <button id="btn-play">▶ Walk the Journey</button>
+  </div>
+
+  <div class="board-wrap" id="board-wrap">
+    <svg id="graph" viewBox="0 0 1180 1560" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(242,232,213,0.7)"></path>
+        </marker>
+      </defs>
+
+      <g id="viewport">
+        <g id="zones">
+          <rect class="zone-box" x="330" y="205" width="520" height="270" stroke="var(--teal)"></rect>
+          <text class="zone-label" x="350" y="228" fill="var(--teal)">Authentication</text>
+          <rect class="zone-box" x="40" y="600" width="1100" height="140" stroke="var(--slate)"></rect>
+          <text class="zone-label" x="60" y="625" fill="var(--slate)">Main Navigation Tabs</text>
+          <rect class="zone-box" x="120" y="760" width="500" height="260" stroke="var(--amber)"></rect>
+          <text class="zone-label" x="140" y="783" fill="var(--amber)">Shopping Experience</text>
+          <rect class="zone-box" x="120" y="1040" width="500" height="260" stroke="var(--crimson)"></rect>
+          <text class="zone-label" x="140" y="1063" fill="var(--crimson)">Checkout Process</text>
+          <rect class="zone-box" x="660" y="760" width="460" height="540" stroke="var(--sage)"></rect>
+          <text class="zone-label" x="680" y="783" fill="var(--sage)">Personalization</text>
+        </g>
+        
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+  </div>
+
+  <div id="detail">
+    <span style="color:var(--slate); font-style:italic;">Interact with the graph above to view details here.</span>
+  </div>
+
+<script>
+const NODES = [
+  {id:"start", x:600, y:60, w:170, h:46, label:"App Launch", sub:"entry point", cat:"nav", desc:"The cold-start entry point. Every session begins here."},
+  {id:"splash", x:600, y:150, w:170, h:46, label:"Splash Screen", sub:"4s timer", cat:"nav", desc:"Shown for a fixed 4-second timer while the app initializes."},
+  {id:"auth", x:600, y:245, w:190, h:52, label:"Auth Choice", sub:"decision · 2 tabs", cat:"auth", diamond:true, desc:"The 'Gatekeeper.' Presents Login and Register as tabs."},
+  {id:"login", x:460, y:345, w:150, h:46, label:"Login Screen", sub:"tab 1", cat:"auth", desc:"Verifies credentials against the SQLite users table."},
+  {id:"register", x:760, y:345, w:150, h:46, label:"Register Screen", sub:"tab 2", cat:"auth", desc:"New account creation. Redirects back to Login."},
+  {id:"session", x:600, y:445, w:210, h:46, label:"User Session Created", sub:"verify SQLite", cat:"auth", desc:"The userId established here drives data partitioning everywhere."},
+  {id:"mainnav", x:600, y:558, w:220, h:52, label:"Main Navigation", sub:"decision · 5 tabs", cat:"nav", diamond:true, desc:"The five-tab home base of the app."},
+  {id:"home", x:220, y:672, w:130, h:44, label:"Home", sub:"index 0", cat:"nav", desc:"Default landing tab. Supports category filtering."},
+  {id:"search", x:420, y:672, w:130, h:44, label:"Search", sub:"index 1", cat:"nav", desc:"Landing spot for finding specific items."},
+  {id:"favs", x:600, y:672, w:130, h:44, label:"Favorites", sub:"index 2", cat:"nav", desc:"Populated per-user from the Favorites Database."},
+  {id:"orders", x:790, y:672, w:150, h:44, label:"My Orders", sub:"index 3", cat:"nav", desc:"Pulled from the Order History Database, isolated per account."},
+  {id:"profile", x:990, y:672, w:140, h:44, label:"Profile", sub:"index 4", cat:"nav", desc:"Shows user details. Logout clears memory and returns to App Launch."},
+  {id:"detail", x:420, y:800, w:160, h:46, label:"Item Detail", sub:"", cat:"shop", desc:"The Heart icon here writes to Favorites; Add button sends to Cart."},
+  {id:"cart", x:220, y:900, w:130, h:44, label:"Cart", sub:"", cat:"shop", desc:"Collects items. Empty cart routes back to Home."},
+  {id:"checkout", x:220, y:1080, w:170, h:46, label:"Checkout Options", sub:"", cat:"checkout", desc:"Final review before confirming payment details."},
+  {id:"tracking", x:220, y:1180, w:170, h:46, label:"Order Tracking", sub:"", cat:"checkout", desc:"Live status view shown after confirmed order."},
+  {id:"trackend", x:220, y:1280, w:170, h:52, label:"Delivered", sub:"decision", cat:"checkout", diamond:true, desc:"Closes the loop: Back to Home or Save Record."},
+  {id:"favdb", x:760, y:900, w:180, h:56, label:"Favorites Database", sub:"cylinder · SQLite", cat:"person", cyl:true, desc:"Written to by Item Detail's Heart icon."},
+  {id:"orderdb", x:900, y:1280, w:200, h:56, label:"Order History DB", sub:"cylinder · SQLite", cat:"person", cyl:true, desc:"Written to when an order is marked Delivered."},
+  {id:"receipt", x:900, y:1420, w:170, h:46, label:"Receipt Screen", sub:"", cat:"person", desc:"Opened from My Orders. Supports 1-tap reordering."}
+];
+
+const EDGES = [
+  {from:"start", to:"splash"}, {from:"splash", to:"auth", label:"4s timer"},
+  {from:"auth", to:"login", label:"tab 1"}, {from:"auth", to:"register", label:"tab 2"},
+  {from:"register", to:"login", label:"success"}, {from:"login", to:"session", label:"verify DB"},
+  {from:"session", to:"mainnav"}, {from:"mainnav", to:"home", label:"idx 0"},
+  {from:"mainnav", to:"search", label:"idx 1"}, {from:"mainnav", to:"favs", label:"idx 2"},
+  {from:"mainnav", to:"orders", label:"idx 3"}, {from:"mainnav", to:"profile", label:"idx 4"},
+  {from:"home", to:"detail", label:"tap card"}, {from:"search", to:"detail", label:"tap result"},
+  {from:"favs", to:"detail", label:"tap item"}, {from:"detail", to:"cart", label:"add"},
+  {from:"home", to:"cart", label:"quick add"}, {from:"favs", to:"cart", label:"quick add"},
+  {from:"cart", to:"checkout", label:"proceed"}, {from:"checkout", to:"tracking", label:"confirm"},
+  {from:"tracking", to:"trackend", label:"success"}, {from:"trackend", to:"home", label:"back home"},
+  {from:"detail", to:"favdb", label:"heart"}, {from:"favdb", to:"favs", label:"", dashed:true},
+  {from:"trackend", to:"orderdb", label:"save"}, {from:"orderdb", to:"orders", label:"", dashed:true},
+  {from:"orders", to:"receipt", label:"view"}, {from:"receipt", to:"cart", label:"reorder"},
+  {from:"profile", to:"start", label:"logout"}
+];
+
+const CAT_COLOR = { auth:"var(--teal)", nav:"var(--slate)", shop:"var(--amber)", checkout:"var(--crimson)", person:"var(--sage)" };
+const svgNS = "http://www.w3.org/2000/svg";
+const nodesById = Object.fromEntries(NODES.map(n => [n.id, n]));
+const edgesG = document.getElementById("edges");
+const nodesG = document.getElementById("nodes");
+const viewport = document.getElementById("viewport");
+const svgEl = document.getElementById("graph");
+const detailEl = document.getElementById("detail");
+
+// State
+let transform = { x: 0, y: -40, scale: 0.8 };
+let isPanning = false;
+let startPan = { x:0, y:0 };
+let draggedNode = null;
+let activeNodeId = null;
+let isPlaying = false;
+
+// Initialize Graph
+function initGraph() {
+  EDGES.forEach((e, i) => {
+    const g = document.createElementNS(svgNS, "g");
+    g.setAttribute("id", `edge-${i}`);
+    
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("class", "edge");
+    path.setAttribute("marker-end", "url(#arrow)");
+    if (e.dashed) path.setAttribute("stroke-dasharray", "3 4");
+    g.appendChild(path);
+
+    if (e.label) {
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("class", "edge-label");
+      text.textContent = e.label;
+      g.appendChild(text);
+    }
+    
+    edgesG.appendChild(g);
+    e.domGroup = g;
+  });
+
+  NODES.forEach(n => {
+    const g = document.createElementNS(svgNS, "g");
+    g.setAttribute("class", "node-group");
+    g.setAttribute("id", `node-${n.id}`);
+
+    let shape;
+    if (n.diamond) {
+      shape = document.createElementNS(svgNS, "polygon");
+      const hw = n.w/2, hh = n.h/2;
+      shape.setAttribute("points", `0,${-hh} ${hw},0 0,${hh} ${-hw},0`);
+    } else if (n.cyl) {
+      shape = document.createElementNS(svgNS, "rect");
+      shape.setAttribute("x", -n.w/2); shape.setAttribute("y", -n.h/2);
+      shape.setAttribute("width", n.w); shape.setAttribute("height", n.h);
+      shape.setAttribute("rx", n.h/2);
+    } else {
+      shape = document.createElementNS(svgNS, "rect");
+      shape.setAttribute("x", -n.w/2); shape.setAttribute("y", -n.h/2);
+      shape.setAttribute("width", n.w); shape.setAttribute("height", n.h);
+      shape.setAttribute("rx", 6);
+    }
+    shape.setAttribute("class", "node-box");
+    shape.setAttribute("stroke", CAT_COLOR[n.cat]);
+    g.appendChild(shape);
+
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("y", n.sub ? -2 : 5);
+    label.setAttribute("class", "node-label");
+    label.setAttribute("font-size", "12.5");
+    label.textContent = n.label;
+    g.appendChild(label);
+
+    if (n.sub) {
+      const sub = document.createElementNS(svgNS, "text");
+      sub.setAttribute("y", 13);
+      sub.setAttribute("class", "node-sub");
+      sub.textContent = n.sub;
+      g.appendChild(sub);
+    }
+
+    // Node Event Listeners
+    g.addEventListener("mousedown", (e) => {
+      if(isPlaying) return;
+      e.stopPropagation();
+      draggedNode = n;
+      selectNode(n.id);
+    });
+
+    nodesG.appendChild(g);
+    n.domGroup = g;
+  });
+
+  updateAllPositions();
+  applyTransform();
+}
+
+// Math for Edges
+function edgeAnchor(node) {
+  return { top: [node.x, node.y - node.h/2], bottom: [node.x, node.y + node.h/2],
+           left: [node.x - node.w/2, node.y], right: [node.x + node.w/2, node.y] };
+}
+
+function updateAllPositions() {
+  NODES.forEach(n => {
+    n.domGroup.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+  });
+
+  EDGES.forEach(e => {
+    const a = nodesById[e.from], b = nodesById[e.to];
+    const A = edgeAnchor(a), B = edgeAnchor(b);
+    let p1, p2;
+    
+    // Simple routing logic based on relative positions
+    if (Math.abs(a.x - b.x) < 40 && b.y > a.y) { p1 = A.bottom; p2 = B.top; }
+    else if (Math.abs(a.x - b.x) < 40 && b.y < a.y) { p1 = A.top; p2 = B.bottom; }
+    else if (b.y > a.y + 40) { p1 = A.bottom; p2 = B.top; }
+    else if (b.y < a.y - 40) { p1 = A.top; p2 = B.bottom; }
+    else if (b.x > a.x) { p1 = A.right; p2 = B.left; }
+    else { p1 = A.left; p2 = B.right; }
+
+    const midx = (p1[0]+p2[0])/2, midy = (p1[1]+p2[1])/2;
+    const curve = Math.abs(p1[0]-p2[0]) > 60 && Math.abs(p1[1]-p2[1]) > 60 
+      ? `M${p1[0]},${p1[1]} Q${midx},${p1[1]} ${midx},${midy} Q${midx},${p2[1]} ${p2[0]},${p2[1]}` 
+      : `M${p1[0]},${p1[1]} L${p2[0]},${p2[1]}`;
+
+    const path = e.domGroup.querySelector("path");
+    path.setAttribute("d", curve);
+
+    if (e.label) {
+      const text = e.domGroup.querySelector("text");
+      text.setAttribute("x", midx + (Math.abs(p1[0]-p2[0])>60 ? 34 : 12));
+      text.setAttribute("y", midy - 4);
+    }
+  });
+}
+
+// Pan & Zoom Logic
+function applyTransform() {
+  viewport.setAttribute("transform", `translate(${transform.x}, ${transform.y}) scale(${transform.scale})`);
+}
+
+svgEl.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const zoomFactor = 0.05;
+  const dir = e.deltaY > 0 ? -1 : 1;
+  transform.scale += dir * zoomFactor;
+  transform.scale = Math.max(0.3, Math.min(transform.scale, 3));
+  applyTransform();
+});
+
+svgEl.addEventListener("mousedown", (e) => {
+  if (draggedNode || isPlaying) return;
+  isPanning = true;
+  startPan = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (isPanning) {
+    transform.x = e.clientX - startPan.x;
+    transform.y = e.clientY - startPan.y;
+    applyTransform();
+  } else if (draggedNode) {
+    // Convert screen coordinates to SVG coordinates
+    const pt = svgEl.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const svgP = pt.matrixTransform(viewport.getScreenCTM().inverse());
+    draggedNode.x = svgP.x;
+    draggedNode.y = svgP.y;
+    updateAllPositions();
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  isPanning = false;
+  draggedNode = null;
+});
+
+// Selection & Filtering
+function selectNode(id) {
+  if (isPlaying) return;
+  activeNodeId = id;
+  const n = nodesById[id];
+  
+  NODES.forEach(node => {
+    const isRel = node.id === id || EDGES.some(e => (e.from===id && e.to===node.id) || (e.to===id && e.from===node.id));
+    node.domGroup.classList.toggle("dim", !isRel);
+    node.domGroup.classList.toggle("lit-node", node.id === id);
+  });
+
+  EDGES.forEach(e => {
+    const isRel = e.from === id || e.to === id;
+    const p = e.domGroup.querySelector("path");
+    p.classList.toggle("lit-stroke", isRel);
+    e.domGroup.classList.toggle("dim", !isRel);
+  });
+
+  const catNames = {auth:"Authentication", nav:"Navigation", shop:"Shopping", checkout:"Checkout", person:"Personalization"};
+  detailEl.innerHTML = `<span class="d-tag">${catNames[n.cat]}</span>
+    <div class="d-title">${n.label}</div>
+    <div>${n.desc}</div>`;
+}
+
+function applyFilters() {
+  if (isPlaying) return;
+  const q = document.getElementById("search-box").value.toLowerCase();
+  const cat = document.getElementById("cat-filter").value;
+  activeNodeId = null; // Clear active selection
+
+  NODES.forEach(n => {
+    n.domGroup.classList.remove("dim", "lit-node", "hidden");
+    const matchSearch = n.label.toLowerCase().includes(q) || n.sub.toLowerCase().includes(q);
+    const matchCat = cat === "all" || n.cat === cat;
+    
+    if (!matchSearch || !matchCat) {
+      n.domGroup.classList.add("hidden");
+      n.isHidden = true;
+    } else {
+      n.isHidden = false;
+    }
+  });
+
+  EDGES.forEach(e => {
+    const p = e.domGroup.querySelector("path");
+    p.classList.remove("lit-stroke");
+    e.domGroup.classList.remove("dim", "hidden");
+    
+    if (nodesById[e.from].isHidden || nodesById[e.to].isHidden) {
+      e.domGroup.classList.add("hidden");
+    }
+  });
+  
+  detailEl.innerHTML = `<span style="color:var(--slate); font-style:italic;">Showing filtered results. Tap a visible node for details.</span>`;
+}
+
+document.getElementById("search-box").addEventListener("input", applyFilters);
+document.getElementById("cat-filter").addEventListener("change", applyFilters);
+
+// Playback Logic
+const btnPlay = document.getElementById("btn-play");
+const journeyPath = ["start", "splash", "auth", "login", "session", "mainnav", "home", "detail", "cart", "checkout", "tracking", "trackend", "orderdb"];
+
+btnPlay.addEventListener("click", () => {
+  if (isPlaying) return;
+  isPlaying = true;
+  btnPlay.disabled = true;
+  btnPlay.textContent = "Walking Journey...";
+  
+  // Reset view and filters
+  document.getElementById("search-box").value = "";
+  document.getElementById("cat-filter").value = "all";
+  applyFilters();
+  transform = { x: 200, y: 150, scale: 0.9 }; // Reset view
+  applyTransform();
+
+  let step = 0;
+  
+  // Clear styles
+  NODES.forEach(n => n.domGroup.classList.add("dim"));
+  EDGES.forEach(e => e.domGroup.classList.add("dim"));
+
+  const interval = setInterval(() => {
+    if (step >= journeyPath.length) {
+      clearInterval(interval);
+      isPlaying = false;
+      btnPlay.disabled = false;
+      btnPlay.textContent = "▶ Walk the Journey";
+      detailEl.innerHTML = `<span class="d-tag">JOURNEY COMPLETE</span><div class="d-title">Order Saved to Database</div><div>The user flow has successfully closed the loop. Feel free to explore manually!</div>`;
+      
+      // Remove dims
+      setTimeout(() => {
+        if(!activeNodeId) {
+            NODES.forEach(n => n.domGroup.classList.remove("dim", "lit-node"));
+            EDGES.forEach(e => {
+                e.domGroup.classList.remove("dim");
+                e.domGroup.querySelector("path").classList.remove("lit-stroke");
+            });
+        }
+      }, 3000);
+      return;
+    }
+
+    const currentId = journeyPath[step];
+    const prevId = step > 0 ? journeyPath[step-1] : null;
+    const n = nodesById[currentId];
+
+    // Highlight Node
+    n.domGroup.classList.remove("dim");
+    n.domGroup.classList.add("lit-node");
+    
+    // Highlight connecting edge
+    if (prevId) {
+      const connectingEdge = EDGES.find(e => (e.from === prevId && e.to === currentId) || (e.from === currentId && e.to === prevId));
+      if (connectingEdge) {
+        connectingEdge.domGroup.classList.remove("dim");
+        connectingEdge.domGroup.querySelector("path").classList.add("lit-stroke");
+      }
+    }
+
+    // Auto-pan slightly to keep node in view if moving down
+    if(step > 4) {
+        transform.y -= 70;
+        applyTransform();
+    }
+
+    // Update detail box
+    const catNames = {auth:"Authentication", nav:"Navigation", shop:"Shopping", checkout:"Checkout", person:"Personalization"};
+    detailEl.innerHTML = `<span class="d-tag">STEP ${step + 1} OF ${journeyPath.length}</span>
+      <div class="d-title">${n.label}</div>
+      <div>${n.desc}</div>`;
+
+    step++;
+  }, 1200); // 1.2 seconds per step
+});
+
+// Boot
+initGraph();
+
+</script>
+</body>
+</html>
