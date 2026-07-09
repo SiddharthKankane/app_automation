@@ -5,6 +5,10 @@ from appium.options.android import UiAutomator2Options
 from screens.auth_screen import AuthScreen
 from screens.home_screen import HomeScreen
 from screens.profile_screen import ProfileScreen
+from screens.cart_screen import CartScreen
+from screens.checkout_screen import CheckoutScreen
+from screens.track_order_screen import TrackOrderScreen
+from screens.favorites_screen import FavoritesScreen
 import json
 from utils.data_manager import generate_and_archive_user
 
@@ -110,5 +114,8 @@ def app(app_driver):
         auth = AuthScreen(app_driver)
         home = HomeScreen(app_driver)
         profile = ProfileScreen(app_driver)
+        cart = CartScreen(app_driver)
+        checkout = CheckoutScreen(app_driver)
+        track_order = TrackOrderScreen(app_driver)
 
     return AppScreens()

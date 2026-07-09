@@ -52,3 +52,21 @@ class BaseScreen:
             return element.text
         except TimeoutException:
             return None
+
+    def tap_id(self, resource_id):
+        """Click an element using its resource-id."""
+        element = self.wait.until(EC.element_to_be_clickable((AppiumBy.ID, resource_id)))
+        element.click()
+
+    def tap_xpath(self, xpath):
+        """Click an element using its XPath."""
+        element = self.wait.until(EC.element_to_be_clickable((AppiumBy.XPATH, xpath)))
+        element.click()
+
+    def is_displayed_xpath(self, xpath):
+        """Checks if an element is present and displayed, returns boolean."""
+        try:
+            element = self.wait.until(EC.presence_of_element_located((AppiumBy.XPATH, xpath)))
+            return element.is_displayed()
+        except TimeoutException:
+            return False
