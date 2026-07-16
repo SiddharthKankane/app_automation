@@ -12,9 +12,35 @@ class BaseScreen:
         element = self.wait.until(EC.element_to_be_clickable((AppiumBy.ACCESSIBILITY_ID, description)))
         element.click()
 
+    def force_hide_keyboard(self):
+        """Bulletproof method to close the Android keyboard using multiple strategies."""
+        try:
+            # Strategy 1: Check if keyboard is shown, then use Appium's built-in hide
+            if self.driver.is_keyboard_shown():
+                self.driver.hide_keyboard()
+        except Exception:
+            pass
+
+        # Strategy 2: If Strategy 1 failed and the keyboard is STILL up, press the Android Back key!
+        try:
+            if self.driver.is_keyboard_shown():
+                print("[WARN] Standard hide_keyboard failed. Using Android BACK key to dismiss keyboard.")
+                self.driver.press_keycode(4)  # Keycode 4 is the Android physical BACK button
+        except Exception:
+            # Fallback for some drivers where press_keycode fails
+            try:
+                self.driver.back()
+            except Exception:
+                pass
+
     def fill_id(self, resource_id, text):
         element = self.wait.until(EC.presence_of_element_located((AppiumBy.ID, resource_id)))
+        element.click()
+        element.clear()
         element.send_keys(text)
+
+        self.force_hide_keyboard()
+
 
     def fill_xpath(self, xpath, text):
         element = self.wait.until(EC.visibility_of_element_located((AppiumBy.XPATH, xpath)))
@@ -22,13 +48,7 @@ class BaseScreen:
         element.clear()
         element.send_keys(text)
 
-        # Safely hide the keyboard after typing
-        try:
-            if self.driver.is_keyboard_shown():
-                self.driver.hide_keyboard()
-        except Exception:
-            # If the keyboard is already hidden or the command isn't supported, just move on
-            pass
+        self.force_hide_keyboard()
 
     def wait_for_desc(self, description):
         self.wait.until(EC.presence_of_element_located((AppiumBy.ACCESSIBILITY_ID, description)))

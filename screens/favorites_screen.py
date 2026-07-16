@@ -1,24 +1,35 @@
+from appium.webdriver.common.appiumby import AppiumBy
 from screens.base_screen import BaseScreen
 
 class FavoritesScreen(BaseScreen):
-    def verify_on_favorites_page(self):
-        """Verifies the header of the Favorites page is visible."""
+    def verify_favorites_screen_loaded(self):
         self.wait_for_desc("My Favorites")
 
-    def verify_item_is_favorited(self, item_name="Classic Cheeseburger"):
-        """Checks if the specific item card is displayed in the list."""
-        xpath = f"//android.widget.ImageView[contains(@content-desc, '{item_name}')]"
-        return self.is_displayed_xpath(xpath)
+    def get_all_favorite_items(self) -> list:
+        items = []
+        cards = self.driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, '$')]")
+        for card in cards:
+            desc = card.get_attribute("content-desc")
+            if desc:
+                lines = [line.strip() for line in desc.split('\n') if line.strip()]
+                if len(lines) >= 2:
+                    items.append({"name": lines[0], "price": lines[1]})
+        return items
 
-    def add_item_to_cart(self, item_name="Classic Cheeseburger"):
-        """Taps the yellow '+' button for the specified item."""
-        # In the XML, the '+' button is the 2nd button inside the item's ImageView
-        # XPath uses 1-based indexing, so Button[2] targets the second button
-        xpath = f"//android.widget.ImageView[contains(@content-desc, '{item_name}')]/android.widget.Button[2]"
-        self.tap_xpath(xpath)
+    def remove_item_from_favorites(self, item_name: str):
+        self.tap_xpath(f"//android.widget.ImageView[starts-with(@content-desc, '{item_name}')]//android.widget.Button[1]")
 
-    def navigate_to_cart(self):
-        """Taps the Cart icon in the top right header."""
-        # Finds the 'My Favorites' header text, moves up to the parent container, and selects the Button (Cart Icon)
-        xpath = "//android.view.View[@content-desc='My Favorites']/../android.widget.Button"
-        self.tap_xpath(xpath)
+    def add_item_to_cart(self, item_name: str):
+        self.tap_xpath(f"//android.widget.ImageView[starts-with(@content-desc, '{item_name}')]//android.widget.Button[2]")
+
+    def navigate_to_home_tab(self):
+        self.tap_desc("Home\nTab 1 of 5")
+
+    def navigate_to_search_tab(self):
+        self.tap_desc("Search\nTab 2 of 5")
+
+    def navigate_to_orders_tab(self):
+        self.tap_desc("Orders\nTab 4 of 5")
+
+    def navigate_to_profile_tab(self):
+        self.tap_desc("Profile\nTab 5 of 5")

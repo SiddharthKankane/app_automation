@@ -1,10 +1,10 @@
 {
     "valid_user": {
-        "name": "andersenjames",
-        "email": "nicolethompson@example.net",
-        "phone": "5104298343",
-        "location": "Batesfort",
-        "password": "$5H$bn_B+Ehp",
-        "confirm_password": "$5H$bn_B+Ehp"
+        "name": "gilldavid",
+        "email": "jessicagardner@example.org",
+        "phone": "6026333889",
+        "location": "South Daltonland",
+        "password": "U5PaEqyWiGF9",
+        "confirm_password": "U5PaEqyWiGF9"
     }
 }

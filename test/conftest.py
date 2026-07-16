@@ -1,16 +1,30 @@
-import pytest
 import os
+import json
+import pytest
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
+
+# Base & Authentication Screens
 from screens.auth_screen import AuthScreen
-from screens.home_screen import HomeScreen
 from screens.profile_screen import ProfileScreen
+
+# Core Dashboard & Item Discovery Screens
+from screens.home_screen import HomeScreen
+from screens.search_screen import SearchScreen
+from screens.item_details_screen import ItemDetailsScreen
+from screens.favorites_screen import FavoritesScreen
+
+# Cart & Order Transaction Management
 from screens.cart_screen import CartScreen
 from screens.checkout_screen import CheckoutScreen
+
+# Post-Purchase & Tracking Screens
+from screens.receipt_screen import ReceiptScreen
 from screens.track_order_screen import TrackOrderScreen
-from screens.favorites_screen import FavoritesScreen
-import json
-from utils.data_manager import generate_and_archive_user
+from screens.orders_screen import OrdersScreen
+
+# Data Flow Utility Helpers
+from utils.data_manager import get_existing_user, get_new_user
 
 
 # ==========================================
@@ -21,24 +35,31 @@ def pytest_addoption(parser):
     parser.addoption(
         "--env",
         action="store",
-        default="browserstack",
+        default="physical",
         help="Environment to run tests against: emulator, physical, or browserstack"
     )
 
 
 # ==========================================
-# 2. DATA FIXTURE
+# 2. DATA FIXTURES (UPDATED)
 # ==========================================
 
 @pytest.fixture(scope="function")
-def test_data():
-    """Provides test data (either custom from file or dynamically generated)."""
-    return get_test_data()
+def new_user_data():
+    """Archives old data and generates brand new user data. Use for fresh registration flows."""
+    return get_new_user()
+
+
+@pytest.fixture(scope="function")
+def existing_user_data():
+    """Reads existing user data without creating a new user or wiping profiles. Use for direct login flows."""
+    return get_existing_user()
+
 
 # ==========================================
 # 3. DYNAMIC DRIVER FIXTURE
 # ==========================================
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def app_driver(request):
     """Configures the driver based on the --env flag."""
 
@@ -49,14 +70,14 @@ def app_driver(request):
     options.platform_name = "Android"
     options.app_package = "com.example.food_app"
     options.app_activity = ".MainActivity"
+    options.no_reset = True
+    options.full_reset = False
 
     # ----------------------------------------
     # Route 1: Local Emulator
     # ----------------------------------------
     if env == "emulator":
         print("\n🚀 Routing test to Local Emulator...")
-        # Optional: Specify exact emulator if multiple are running
-        # options.udid = "emulator-5554"
         driver = webdriver.Remote('http://127.0.0.1:4723', options=options)
 
     # ----------------------------------------
@@ -64,7 +85,6 @@ def app_driver(request):
     # ----------------------------------------
     elif env == "physical":
         print("\n📱 Routing test to Physical Device...")
-        # Best practice: Pull UDID from an environment variable so it isn't hardcoded
         device_udid = os.environ.get("PHYSICAL_DEVICE_UDID", "00078347E000323")
         options.udid = device_udid
         driver = webdriver.Remote('http://127.0.0.1:4723', options=options)
@@ -98,24 +118,36 @@ def app_driver(request):
     else:
         raise ValueError(f"Unknown environment: {env}. Please use emulator, physical, or browserstack.")
 
-    # Yield the configured driver to the test
     yield driver
-
-    # Teardown
     driver.quit()
 
 
-# ==========================================
+
 # 4. APP PAGE OBJECTS FIXTURE
+# ==========================================
 # ==========================================
 @pytest.fixture(scope="function")
 def app(app_driver):
     class AppScreens:
+        # Authentication & Onboarding
         auth = AuthScreen(app_driver)
+
+        # Dashboard & Discovery
         home = HomeScreen(app_driver)
-        profile = ProfileScreen(app_driver)
+        search = SearchScreen(app_driver)
+        item_details = ItemDetailsScreen(app_driver)
+        favorites = FavoritesScreen(app_driver)
+
+        # Cart & Transaction Pipeline
         cart = CartScreen(app_driver)
         checkout = CheckoutScreen(app_driver)
+
+        # Post-Purchase Fulfillment & History
+        receipt = ReceiptScreen(app_driver)
         track_order = TrackOrderScreen(app_driver)
+        orders = OrdersScreen(app_driver)
+
+        # Account Management
+        profile = ProfileScreen(app_driver)
 
     return AppScreens()
